@@ -1,0 +1,2 @@
+- Database aangemaakt met naam Articles in SSMS
+- Excel in database gestoken aan de hand van migratie

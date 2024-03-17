@@ -1,0 +1,114 @@
+﻿@using WebApp.Models
+
+@if (ShowPopup)
+{
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <p class="text-danger">@ErrorMessage</p>
+    }
+    <div class="modal" tabindex="-1" role="dialog" style="display:block;">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@PopupTitle</h5>
+                    <button type="button" class="close" @onclick="ClosePopup">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="content">Content:</label>
+                        <input id="content" type="number" class="form-control" @bind="EditedArticle.Content" />
+                    </div>
+                    <div class="form-group">
+                        <label for="unit">Unit:</label>
+                        <input id="unit" type="text" class="form-control" @bind="EditedArticle.Unit" />
+                    </div>
+
+                    @foreach (var description in EditedArticle.ArticleDescriptions)
+                    {
+                        <div class="form-row">
+                            <label for="language">Language & Description:</label>
+                            <div class="col-md-12">
+                                <input id="language" type="text" class="form-control" style="display: inline-block; width: 20%;" @bind="@description.Language" />
+                                <input id="description" type="text" class="form-control" style="display: inline-block; width: 40%; margin-left: 10px;" @bind="@description.Description" />
+                                <button class="btn btn-danger" style="display: inline-block;" @onclick="() => RemoveDescription(description)">Remove</button>
+                            </div>
+                        </div>
+                    }
+
+                    <button type="button" class="btn btn-success" @onclick="AddDescription">Add Description</button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveChanges">@ActionButtonText</button>
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePopup">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public ArticleViewModel EditedArticle { get; set; }
+    [Parameter]
+    public bool ShowPopup { get; set; }
+    [Parameter]
+    public EventCallback<bool> ShowPopupChanged { get; set; }
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+
+    private string PopupTitle => IsEditing ? "Edit Article" : "Add Article";
+    private string ActionButtonText => IsEditing ? "Save Changes" : "Add";
+    private string ErrorMessage = string.Empty;
+
+    private async Task SaveChanges()
+    {
+        if (IsEditing)
+        {
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PutAsJsonAsync($"https://localhost:7181/api/article/EditArticle", EditedArticle);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ShowPopupChanged.InvokeAsync(false);
+            }
+            else
+            {
+                ErrorMessage = "Failed to save changes. Please try again later.";
+            }
+        }
+        else
+        {
+            using var httpClient = new HttpClient();
+            var response = await httpClient.PostAsJsonAsync($"https://localhost:7181/api/article/AddArticle", EditedArticle);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ShowPopupChanged.InvokeAsync(false);
+            }
+            else
+            {
+                ErrorMessage = "Failed to add article. Please try again later.";
+            }
+        }
+    }
+
+    private async Task ClosePopup()
+    {
+        await ShowPopupChanged.InvokeAsync(false);
+    }
+
+    private void AddDescription()
+    {
+        EditedArticle.ArticleDescriptions.Add(new ArticleDescriptionsViewModel());
+    }
+
+    private void RemoveDescription(ArticleDescriptionsViewModel description)
+    {
+        EditedArticle.ArticleDescriptions.Remove(description);
+    }
+
+}

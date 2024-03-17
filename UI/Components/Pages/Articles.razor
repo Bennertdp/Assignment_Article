@@ -1,0 +1,128 @@
+﻿@page "/"
+@using System.Globalization
+@using WebApp.Models
+@using Microsoft.AspNetCore.Components.Forms
+@rendermode InteractiveServer
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p class="text-danger">@ErrorMessage</p>
+}
+
+<h1>Articles</h1>
+
+<button class="btn btn-primary" @onclick="(e) => AddArticle()">Add Article</button>
+
+@if (articles == null)
+{
+    <p>Loading...</p>
+}
+else if (articles.Count == 0)
+{
+    <p>No articles found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Article ID</th>
+                <th>Description</th>
+                <th>Content</th>
+                <th>Unit</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var article in articles)
+            {
+                var description = article.ArticleDescriptions.FirstOrDefault(d => d.Language == CultureInfo.CurrentCulture.TwoLetterISOLanguageName.ToUpper()).Description;
+                if (description == null)
+                {
+                    description = article.ArticleDescriptions.FirstOrDefault(d => d.Language == "NL").Description;
+                }
+                <tr>
+                    <td>@article.ArticleId</td>
+                    <td>@description</td>
+                    <td>@article.Content</td>
+                    <td>@article.Unit</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="(e) => EditArticle(article)">Edit</button>
+                        <button class="btn btn-danger" @onclick="(e) => DeleteArticle(article)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<ArticlePopup ShowPopup="ShowPopup"
+              ShowPopupChanged="SetShowPopup"
+              EditedArticle="EditedArticle"
+              IsEditing="IsEditing" />
+
+@code {
+    private List<ArticleViewModel> articles;
+    private bool ShowPopup = false;
+    private bool IsEditing = false;
+    private ArticleViewModel EditedArticle;
+    private string ErrorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadArticles();
+    }
+
+    protected void EditArticle(ArticleViewModel article)
+    {
+        EditedArticle = article;
+        IsEditing = true;
+        ShowPopup = true;
+    }
+
+    protected void AddArticle()
+    {
+        EditedArticle = new ArticleViewModel();
+        IsEditing = false;
+        ShowPopup = true;
+    }
+
+    protected async Task SetShowPopup(bool value)
+    {
+        ShowPopup = value;
+        if (!value)
+        {
+            await LoadArticles();
+        }
+    }
+
+    protected async Task DeleteArticle(ArticleViewModel article)
+    {
+        using var httpClient = new HttpClient();
+        var response = await httpClient.DeleteAsync($"https://localhost:7181/api/article/DeleteArticle/{article.ArticleId}");
+
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadArticles();
+        }
+        else
+        {
+            ErrorMessage = "Failed to delete article. Please try again later.";
+        }
+    }
+
+    private async Task LoadArticles()
+    {
+        using var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync("https://localhost:7181/api/article/GetAllArticles");
+
+        if (response.IsSuccessStatusCode)
+        {
+            articles = await response.Content.ReadFromJsonAsync<List<ArticleViewModel>>();
+        }
+        else
+        {
+            ErrorMessage = "Failed to load articles. Please try again later.";
+        }
+    }
+}
